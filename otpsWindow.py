@@ -14,7 +14,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_otpwin(object):
     def setupUi(self, otpwin):
         otpwin.setObjectName("otpwin")
-        otpwin.resize(1016, 862)
+        otpwin.resize(1016, 878)
         otpwin.setStyleSheet("\n"
 "QDialog {\n"
 "    background-color:rgb(120, 82, 82);\n"
@@ -854,14 +854,14 @@ class Ui_otpwin(object):
 "\n"
 "qproperty-alignment: AlignCenter;")
         self.label_25.setObjectName("label_25")
-        self.body_widget.raise_()
-        self.saved_widget.raise_()
-        self.pass_widget.raise_()
         self.settings_widget.raise_()
+        self.body_widget.raise_()
         self.gridLayoutWidget.raise_()
         self.listWidget.raise_()
-        self.number_notification.raise_()
         self.cancel_confirm.raise_()
+        self.pass_widget.raise_()
+        self.saved_widget.raise_()
+        self.number_notification.raise_()
         self.scrollArea.setWidget(self.scrollAreaWidgetContents)
         self.body.addWidget(self.scrollArea)
         self.main_layout.addLayout(self.body, 2, 0, 1, 1)
@@ -1110,7 +1110,7 @@ class Ui_otpwin(object):
         self.bottom_line.addWidget(self.label_3)
         self.main_layout.addLayout(self.bottom_line, 4, 0, 1, 1)
         self.balance_widget = QtWidgets.QPushButton(otpwin)
-        self.balance_widget.setGeometry(QtCore.QRect(470, 800, 111, 31))
+        self.balance_widget.setGeometry(QtCore.QRect(470, 810, 101, 31))
         self.balance_widget.setStyleSheet("background-color:none;\n"
 "border:none")
         self.balance_widget.setText("")

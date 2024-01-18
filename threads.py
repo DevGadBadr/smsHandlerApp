@@ -24,9 +24,11 @@ class getNumberThread(QThread):
         self.stop_generate_signal.connect(self.stopGenerating)
         # try:
         number_data = self.x.getNumber(service=self.service)
-        self.data_signal.emit(number_data)
-        # except Exception as e:
-        #     print(f'Error on get number thread {e}')
+        
+        if type(number_data)==tuple:
+            self.data_signal.emit(number_data)
+        else:
+            self.thread_signal.emit("Can't Find Numbers Now")
         
     def signal_handle(self,msg):
         self.thread_signal.emit(msg)
@@ -153,37 +155,19 @@ class getCurrentActivationThread(QThread):
         
 class searchTargetThread(QThread):
     countries = pyqtSignal(list)
-    
-    def __init__(self,service):
-        super().__init__()
-        self.service = service
+    update = pyqtSignal()
     def run (self):
         self.api = API_Handler()
-        with open('target_countries.txt','r') as g:
-            n = g.readlines()
-            clean=[]
-            for i in n:
-                f = i.replace('\n','')
-                clean.append(f)
-        g.close
-        target=[]
-        b = open('config.json','r')
-        n = json.load(b)
-        key = n['data3']
-        enc_number = n['data4']
-        cipher_suite = Fernet(key)
-        decrypted_number = cipher_suite.decrypt(enc_number).decode('utf-8')
-        max_price = decrypted_number
-        for country in clean:
-            c = self.api.getServicesAndCost(country,'any',self.service)
-            if c[0][0]['price'] <= max_price:
-                pass
-            else:
-                target.append(c)
-        
-        self.countries.emit(target)    
         self.api.countries_signal.connect(self.sendCountries)
-        self.api.searchTargetNumbers()
-        
+        # try:
+        self.api.searchTargetNumbers(service='Amazon')
+    # except:
+        self.stopSearch()
+        self.update.emit()
+            
+         
     def sendCountries(self,mycountries):
         self.countries.emit(mycountries)
+    
+    def stopSearch(self):
+        self.api.stopSearchingCountries()

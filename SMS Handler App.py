@@ -27,8 +27,8 @@ class myview(Ui_Dialog):
         window.setWindowTitle('SMS Handler')
         self.myedit()
         self.OTPsWindow()
-        
-        
+                
+
     def myedit(self):
         self.quickOtpsButton.clicked.connect(self.OTPsWindow)
         self.closeButton.clicked.connect(wind.close)
@@ -106,18 +106,20 @@ class myview(Ui_Dialog):
                 self.timesNumber.textChanged.connect(self.setTimesNumber)
                 self.saved_widget.hide()
                 self.assignCancelButtons()
-                # self.gridLayoutWidget.setStyleSheet('border:1px solid white')
                 
                 # Initials
                 with open('CountryCodes.json','r') as c:
                     self.country_codes = json.load(c)
                 c.close()
+                self.target_countries = searchTargetThread()
+                self.target_countries.countries.connect(self.updateAvailableCountries)
+                self.target_countries.update.connect(self.refresh)
+
+                self.readTargetCountries()
                 
-                # print(self.country_codes)
                 # Resize
                 self.scrollArea.setWidgetResizable(False)
-                # self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 899, 539))
-                self.labell.setGeometry(325,810,500,60)
+                self.labell.setGeometry(340,830,500,60)
                 self.cancel_width = self.cancel_number_but_1.width()+self.code_status_1.width()
                 self.cancel_confirm.setGeometry(QtCore.QRect(463, 45, self.cancel_number_but_1.width()+self.code_status_1.width(), 30))
                 
@@ -141,16 +143,34 @@ class myview(Ui_Dialog):
                     self.con_timer.start(5000)
                     
                 else:
-                    
+                    self.target_countries.start()
                     self.readLastView()
                     
                 self.label_17.clear()
                 self.removeRowHandle(1)
                 self.running_threads = []
-                
-                
                 self.installOTP()
                 
+            def refresh(self):
+                self.close_button.click()
+                n.otpsWindowCLosed()
+                time.sleep(2)
+            def readTargetCountries(self):
+                with open('target_countries.txt','r') as g:
+                    n = g.readlines()
+                    clean=[]
+                    for i in n:
+                        f = i.replace('\n','')
+                        clean.append(f)
+                g.close
+                self.listWidget_2.clear()
+                for item in list(set(clean)):
+                    self.listWidget_2.addItem(item)
+                    
+            def updateAvailableCountries(self,countries_list):
+                print(f'updating countries list')
+                self.readTargetCountries()
+                                    
             def setTimesNumber(self):
                 entered_text = self.timesNumber.text()
                 if entered_text=='':
@@ -204,9 +224,9 @@ class myview(Ui_Dialog):
                 self.messages.show()
                 self.messages.setText(event)
                 if 'Getting Balance' in event:
-                    self.qstarter = self.q.singleShot(2000,lambda: self.messages.clear())
+                    self.qstarter = self.q.singleShot(3000,lambda: self.messages.clear())
                 else:
-                    self.qstarter = self.q.singleShot(5000,lambda: self.messages.clear())
+                    self.qstarter = self.q.singleShot(6000,lambda: self.messages.clear())
                         
             def assignCancelButtons(self):
                 
@@ -243,17 +263,16 @@ class myview(Ui_Dialog):
                 
             def save_settings(self):
                 api_key = self.api_field.text()
-                max_cost = self.max_cost_field.text()
+                self.max_cost = self.max_cost_field.text()
                 password = self.password_change_field.text()
                 
                 # Encryption Passsword
-                
                 pass_salt =  bcrypt.gensalt()
                 hashed_password = bcrypt.hashpw(password.encode('utf-8'), pass_salt)
                 # max cost
                 key = Fernet.generate_key()
                 cipher_suite = Fernet(key)
-                encrypted_number = cipher_suite.encrypt(str(max_cost).encode('utf-8'))
+                encrypted_number = cipher_suite.encrypt(str(self.max_cost).encode('utf-8'))
 
                 config = {
                     "data": pass_salt.decode('utf-8'),
@@ -275,8 +294,25 @@ class myview(Ui_Dialog):
                 self.settings_widget.hide()
                 self.saved_widget.show()
                 self.saved_timer = QTimer()
-                self.saved_timer.singleShot(1500,lambda: self.saved_widget.hide())                    
+                self.saved_timer.singleShot(1500,lambda: self.saved_widget.hide())     
                 
+                with open('target_countries.txt','w') as c:
+                    c.write('')
+                c.close()
+                self.updateSearch()
+                               
+            
+            def updateSearch(self):
+                self.target_countries.stopSearch()
+                print('Starting again to search')
+                j = open('config.json','r') 
+                m = json.load(j)
+                m['count'] = 0
+                f = open('config.json','w')
+                json.dump(m,f)
+                self.target_countries = searchTargetThread()
+                self.target_countries.countries.connect(self.updateAvailableCountries)
+                self.target_countries.start()
                             
             def modifyView(self):
                 self.verScroll = self.scrollArea.verticalScrollBar()
@@ -303,6 +339,7 @@ class myview(Ui_Dialog):
             def settingsHandle(self):
                 self.access_setting_but.clicked.connect(self.accessSettingHandle)
                 if self.pass_widget_hidden:
+                    self.password_field.clear()
                     self.pass_widget.show()
                     self.pass_widget_hidden = False
                 else:
@@ -640,8 +677,10 @@ class myview(Ui_Dialog):
                     self.target_rowT['status'].setText('Number Expired')
                     
                 else:
-                    self.target_rowT['code_field'].setText(time)
-                
+                    try:
+                        self.target_rowT['code_field'].setText(time)
+                    except RuntimeError:
+                        pass
             def handleNumberMessage(self,msg,index):
                 
                 for row in self.current_rows:
@@ -820,6 +859,7 @@ class myview(Ui_Dialog):
                     self.getbalance()
                     
                 self.service_field.clearFocus()
+                self.secret_field_1.clearFocus()
 
                 
             def cancel_number(self,number_id):
@@ -903,6 +943,9 @@ class myview(Ui_Dialog):
                     pass
                 
                 otps_window.finished.disconnect(self.cleanClose)
+                self.target_countries.stopSearch()
+                self.listWidget_2.clear()
+                self.label_17.clear()
                 
             def readLastView(self):
                 with open('current_numbers.json','r') as c:
@@ -1086,7 +1129,6 @@ class myview(Ui_Dialog):
                     # Refresh the Window
                     self.con_timer.stop()
                     self.close_button.click()
-                    
                     n.otpsWindowCLosed()
                     
                 

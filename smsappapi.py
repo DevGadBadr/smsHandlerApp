@@ -32,6 +32,7 @@ class API_Handler(QObject):
     signal_sender = pyqtSignal(str)
     app_online = True
     countries_signal = pyqtSignal(list)
+    writing_now = False
     
     def messages_test(self):
         while True:
@@ -76,16 +77,19 @@ class API_Handler(QObject):
             url = f'https://sms-activation-service.com/stubs/handler_api?api_key={api_key}&action=getCountryAndOperators&lang={lang}'
             reqo = requests.get(url)
             countries = reqo.json()
+            suc = True
         except Exception as e:
+            suc = False
             print(e)
         
-        for country_name in countries:
-            if country.lower() == country_name['name'].lower():
-                our_id = country_name['id']
-                break
-            else:
-                our_id = 'None'
-        return our_id,country_name['name']
+        if suc:
+            for country_name in countries:
+                if country.lower() == country_name['name'].lower():
+                    our_id = country_name['id']
+                    break
+                else:
+                    our_id = 'None'
+            return our_id,country_name['name']
         
     def getCountryAndOperators(self):
         msg = 'Getting Current Countries and Operators'
@@ -138,8 +142,13 @@ class API_Handler(QObject):
                     return 'No avaialable Numbers for this service'
            
     def searchTargetNumbers(self,service):
-        
-        
+       
+        # Read last index to continue from in the countries list
+        with open('config.json','r') as g:
+            f = json.load(g)
+            n=f['count']+1
+            
+        # While app running keep looking for countries and prices
         while self.app_online:
             m = self.getCountryAndOperators()
             countries=[]
@@ -148,17 +157,73 @@ class API_Handler(QObject):
             for item in m:
                 country_name = item['name']
                 countries.append(country_name)
-            # random.shuffle(countries)
-            for country in countries:
-                f = self.getServicesAndCost(country,'any',service)
-                print(f)
-                flist.append(f)
-                if f[0][0]['price'] <=max_price and f[1]!="Russia":
-                    self.target.append(f)
-                    
-            self.countries_signal.emit(self.target)
+            self.checkCurrentCountries()
+            print(self.target)
+            if len(self.target)==0:
+                n=0
+            n=0
+            for country in countries[n:]:
+                if self.app_online:
+                    f = self.getServicesAndCost(country,'any',service)
+                    print(f)
+                    flist.append(f)
+                    if f[0][0]['price'] <=float(max_price) and f[1]!="Russia":
+                        if f'{f[1]}  {f[0][0]["price"]}$' not in self.clean:
+                            self.target.append(f)
+                            print(self.target)
+                            self.writeCountries()
+                            self.countries_signal.emit(self.target)
+                    elif f[0][0]['price'] >float(max_price) and f[1]!="Russia":
+                        if f in self.target or f'{f[1]}  {f[0][0]["price"]}$' in self.clean:
+                            
+                            try:
+                                self.target.remove(f)
+                            except ValueError:
+                                print(self.target)
+                                cell = ([{'price':f[0][0]['price']}],f[1],'Amazon')
+                                self.target.remove(cell)
+                                
+                            print(self.target)
+                            self.writeCountries()
+                            self.countries_signal.emit(self.target)
+                            
+                    print(f'{countries.index(country)}/{len(countries)}')
+                    index = countries.index(country)
+                else:
+                    break
             
-             
+            n=0         
+            
+            
+        if not self.app_online:
+            j = open('config.json','r') 
+            m = json.load(j)
+            m['count'] = index
+            f = open('config.json','w')
+            json.dump(m,f)
+            
+     
+    def checkCurrentCountries(self):
+        with open('target_countries.txt','r') as g:
+            n = g.readlines()
+            self.clean=[]
+            for i in n:
+                f = i.replace('\n','')
+                self.clean.append(f)
+        g.close
+        for country in list(set(self.clean)):
+            country_tuple = ([{'price':float(country.split(' ')[-1].replace('$',''))}],country.split(' ')[0],'Amazon')
+            self.target.append(country_tuple)
+                    
+    def writeCountries(self):
+        
+        with open('target_countries.txt','w') as g:
+            self.writing_now = True
+            for item in self.target:
+                g.write(f'{item[1]}  {item[0][0]["price"]}$'+'\n')
+        g.close
+        self.writing_now = False
+        
     def getNumber(self,service=service):
         msg = 'Getting Service Code'
         print(msg)
@@ -172,48 +237,72 @@ class API_Handler(QObject):
         msg = 'Picking a random Country'
         print(msg)
         self.signal_sender.emit(msg)
-        target_price_countries =self.target
+        while True:
+            if self.writing_now:
+                print('Detected trying read while writing')
+            else:
+                with open('target_countries.txt','r') as g:
+                    n = g.readlines()
+                    clean=[]
+                    for i in n:
+                        f = i.replace('\n','')
+                        f = f.split(' ')[0]
+                        clean.append(f)
+                g.close
+                break
+        target_price_countries =list(set(clean))
         random.shuffle(target_price_countries)
-        country = target_price_countries[0][1]
         msg = 'Confirming Price'
         print(msg)
-        
-        current_stat = self.getServicesAndCost(country,'any',service)
-        if current_stat[0][0]['price'] <= max_price:
-            pass
-        # TBC
+        self.signal_sender.emit(msg)
+        got_country = False
+       
         trial = 0
-        print(target_price_countries)
-      
-     
-     
         print(target_price_countries)
         print(len(target_price_countries))
         while self.Continue_generate_number:
             # shuffle and start taking
-            for i in range(0,len(target_price_countries)):
-                random_country = target_price_countries[i]
-                country_id = self.getCountryCode(random_country)[0]
-                print(f'Trying for {random_country}')
-                url = f'https://sms-activation-service.com/stubs/handler_api?api_key={api_key}&action=getNumber&country={country_id}&operator={operator}&service={service_id}&lang={lang}'
-                reqo = requests.get(url)
-                if reqo.text in ['NO_NUMBERS','BAD_ACTION']:
-                    print(reqo.text)
-                    msg = 'Finding Number with requirements'
-                    self.signal_sender.emit(msg)
-                    if self.Continue_generate_number and trial<len(target_price_countries):
-                        trial+=1
-                        print(f'Trial {trial}')
-                        continue
-                    else:
-                        print(len(target_price_countries))
-                        print('Searching Cancelled or finished')
-                        return 'Searching Cancelled or finished'
+            for c in target_price_countries:
+                country = c
+                current_stat = self.getServicesAndCost(country,'any',service)
+                if current_stat[0][0]['price'] <= float(max_price):
+                    got_country = True
+                    break
                 else:
-                    print(reqo.text)
-                    msg = 'Number Generated'
-                    self.signal_sender.emit(msg)
-                    return reqo.text,random_country,service
+                    print(f'Country {country} does not meet target Trying again')
+                    continue
+            if got_country:
+                pass
+            else:
+                msg = 'No Countries Available with this Price'
+                self.signal_sender.emit(msg)
+                return None
+
+            msg = f'Trying for {country}'
+            print(msg)
+            self.signal_sender.emit(msg)
+            country_id = self.getCountryCode(country)[0]
+            
+            url = f'https://sms-activation-service.com/stubs/handler_api?api_key={api_key}&action=getNumber&country={country_id}&operator={operator}&service={service_id}&lang={lang}'
+            reqo = requests.get(url)
+            
+            if reqo.text in ['NO_NUMBERS','BAD_ACTION']:
+                print(reqo.text)
+                msg = 'Finding Number with requirements'
+                self.signal_sender.emit(msg)
+                if self.Continue_generate_number and trial<len(target_price_countries):
+                    trial+=1
+                    print(f'Trial {trial}')
+                    continue
+                else:
+                    print(len(target_price_countries))
+                    print('Searching Cancelled or finished')
+                    return 'Searching Cancelled or finished'
+            else:
+                print(reqo.text)
+                msg = 'Number Generated'
+                self.signal_sender.emit(msg)
+                return reqo.text,country,service
                    
     def setStatus(self,ID,STATUS):
         url = f'https://sms-activation-service.com/stubs/handler_api?api_key={api_key}&action=setStatus&id={ID}&status={STATUS}&lang={lang}'

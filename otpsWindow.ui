@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1016</width>
-    <height>862</height>
+    <height>878</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -1464,14 +1464,14 @@ qproperty-alignment: AlignCenter;</string>
            </property>
           </widget>
          </widget>
-         <zorder>body_widget</zorder>
-         <zorder>saved_widget</zorder>
-         <zorder>pass_widget</zorder>
          <zorder>settings_widget</zorder>
+         <zorder>body_widget</zorder>
          <zorder>gridLayoutWidget</zorder>
          <zorder>listWidget</zorder>
-         <zorder>number_notification</zorder>
          <zorder>cancel_confirm</zorder>
+         <zorder>pass_widget</zorder>
+         <zorder>saved_widget</zorder>
+         <zorder>number_notification</zorder>
         </widget>
        </widget>
       </item>
@@ -2049,8 +2049,8 @@ border:0px;
    <property name="geometry">
     <rect>
      <x>470</x>
-     <y>800</y>
-     <width>111</width>
+     <y>810</y>
+     <width>101</width>
      <height>31</height>
     </rect>
    </property>
